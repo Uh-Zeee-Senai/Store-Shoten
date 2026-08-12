@@ -1,0 +1,20 @@
+{
+  "name": "Livraria Jashin",
+  "short_name": "Encomenda",
+  "description": "Aplicativo PWA para compra e encomenda de livros",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#2c3e50",
+  "icons": [
+    {
+      "src": "./icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2c3e50">
+
+    <!-- APPLE -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <meta name="description" content="Livraria que vende livros sob-encomenda">
+
+    <title>Livraria Jashin</title>
+
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="icon" href="icon.png" type="image/png">
+</head>
+
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Livraria Jashin</h1>
+            <button id="installBtn" class="btn install-btn" hidden>Instalar</button>
+        </header>
+
+        <section id="botaoNovaEncomendasection" class="section">
+            <button class="btn btn-large btn-success" onclick="toggleFormSection()">
+                Encomendar Livro
+            </button>
+        </section>
+
+        <section id="formSection" class="section form-section">
+            <h2>Solicitar Livro</h2>
+            <form id="encomendaForm">
+                <div class="form-group">
+                    <label for="numeroEncomenda">Nome do Livro</label>
+                    <input type="text" id="numeroEncomenda" placeholder="Escreva o Nome do Livro" required autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="descricao">Descrição</label>
+                    <input type="text" id="descricao" placeholder="Descreva o Gênero, Autor, Idioma e Versão do Livro" required autocomplete="off">
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Enviar</button>
+                    <button type="button" class="btn btn-secondary" onclick="toggleFormSection()">Cancelar</button>
+                </div>
+            </form>
+        </section>
+
+        <section id="tabelaSection" class="section">
+            <h2>Lista de Encomendas</h2>
+            <div id="encomendaList" class="encomenda-list">
+                <p class="empty-message">Nenhuma encomenda registrado.</p>
+            </div>
+        </section>
+    </div>
+
+    <footer class="footer">
+        <p>© 2026 Livraria Jashin / 邪神書店. Todos os direitos reservados.</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
