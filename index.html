@@ -1,69 +1,55 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#2c3e50">
-
-    <!-- APPLE -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-
     <meta name="description" content="Livraria que vende livros sob-encomenda">
-
     <title>Livraria Jashin</title>
-
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="styles.css">
     <link rel="apple-touch-icon" href="icon.png">
     <link rel="icon" href="icon.png" type="image/png">
 </head>
-
 <body>
     <div class="container">
         <header class="header">
-            <h1>Livraria Jashin</h1>
+            <div class="brand"><img src="icon.png" alt="Símbolo da Livraria Jashin" class="brand-logo"><div><h1>Livraria Jashin</h1><p>Histórias para levar em sua jornada</p></div></div>
             <button id="installBtn" class="btn install-btn" hidden>Instalar</button>
         </header>
 
-        <section id="botaoNovaEncomendasection" class="section">
-            <button class="btn btn-large btn-success" onclick="toggleFormSection()">
-                Encomendar Livro
-            </button>
-        </section>
+        <nav class="tabs" aria-label="Navegação principal">
+            <button class="tab active" data-tab="encomendas" onclick="abrirAba('encomendas')">Encomendas</button>
+            <button class="tab" data-tab="comprar" onclick="abrirAba('comprar')">Comprar <span id="cartCount" class="cart-count" hidden>0</span></button>
+        </nav>
 
-        <section id="formSection" class="section form-section">
-            <h2>Solicitar Livro</h2>
-            <form id="encomendaForm">
-                <div class="form-group">
-                    <label for="numeroEncomenda">Nome do Livro</label>
-                    <input type="text" id="numeroEncomenda" placeholder="Escreva o Nome do Livro" required autocomplete="off">
-                </div>
-                <div class="form-group">
-                    <label for="descricao">Descrição</label>
-                    <input type="text" id="descricao" placeholder="Descreva o Gênero, Autor, Idioma e Versão do Livro" required autocomplete="off">
-                </div>
-                <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Enviar</button>
-                    <button type="button" class="btn btn-secondary" onclick="toggleFormSection()">Cancelar</button>
-                </div>
-            </form>
-        </section>
+        <main id="encomendasTab" class="tab-content active">
+            <section class="section"><button class="btn btn-large btn-success" onclick="toggleFormSection()">Encomendar Livro</button></section>
+            <section id="formSection" class="section form-section">
+                <h2>Solicitar Livro</h2>
+                <form id="encomendaForm">
+                    <div class="form-group"><label for="numeroEncomenda">Nome do livro</label><input type="text" id="numeroEncomenda" placeholder="Escreva o nome do livro" required autocomplete="off"></div>
+                    <div class="form-group"><label for="autor">Autor</label><input type="text" id="autor" placeholder="Ex.: J. R. R. Tolkien" required autocomplete="off"></div>
+                    <div class="form-group"><label for="editora">Editora</label><input type="text" id="editora" placeholder="Ex.: HarperCollins" required autocomplete="off"></div>
+                    <div class="form-group"><label for="versao">Versão</label><select id="versao" required><option value="">Selecione a versão</option><option>Capa comum</option><option>Capa dura</option><option>Edição de luxo</option><option>Edição especial</option><option>Box</option></select></div>
+                    <div class="form-group"><label for="descricao">Detalhes do pedido</label><textarea id="descricao" rows="3" placeholder="Idioma, volume, gênero ou outras observações" required></textarea></div>
+                    <div class="form-actions"><button type="submit" class="btn btn-primary">Enviar</button><button type="button" class="btn btn-secondary" onclick="toggleFormSection()">Cancelar</button></div>
+                </form>
+            </section>
+            <section class="section"><h2>Lista de Encomendas</h2><div id="encomendaList" class="encomenda-list"><p class="empty-message">Nenhuma encomenda registrada.</p></div></section>
+        </main>
 
-        <section id="tabelaSection" class="section">
-            <h2>Lista de Encomendas</h2>
-            <div id="encomendaList" class="encomenda-list">
-                <p class="empty-message">Nenhuma encomenda registrado.</p>
-            </div>
-        </section>
+        <main id="comprarTab" class="tab-content">
+            <section class="shop-hero"><div><p class="eyebrow">ACERVO DA JASHIN</p><h2>Uma nova história espera por você.</h2><p>Livros escolhidos para acompanhar jornadas épicas, aventuras e tardes de leitura.</p></div><div class="hero-art" aria-hidden="true"><span>✦</span><span>☾</span><span>✦</span></div></section>
+            <section class="section shop-section"><div class="section-title-row"><div><p class="eyebrow">DISPONÍVEIS</p><h2>Comprar livros</h2></div><button class="cart-button" onclick="toggleCarrinho()">Sacola <span id="cartCountButton">0</span></button></div><div id="catalogoList" class="catalogo-list"></div></section>
+            <aside id="carrinho" class="carrinho" hidden><div class="cart-header"><h2>Sua sacola</h2><button class="icon-button" onclick="toggleCarrinho()" aria-label="Fechar sacola">×</button></div><div id="carrinhoItens"></div><div class="cart-total"><span>Total</span><strong id="cartTotal">R$ 0,00</strong></div><button class="btn btn-primary" onclick="finalizarCompra()">Finalizar pedido</button></aside>
+        </main>
     </div>
 
-    <footer class="footer">
-        <p>© 2026 Livraria Jashin / 邪神書店. Todos os direitos reservados.</p>
-    </footer>
-
+    <section id="produtoModal" class="produto-editor" hidden aria-labelledby="produtoModalTitle"><div class="produto-editor-card"><button class="icon-button modal-close" onclick="fecharProdutoModal()" aria-label="Fechar">×</button><p class="eyebrow">CATÁLOGO</p><h2 id="produtoModalTitle">Preparar livro para venda</h2><p id="produtoLivroNome" class="modal-book-name"></p><form id="produtoForm"><input type="hidden" id="produtoId"><div class="form-group"><label for="produtoImagem">Foto da capa</label><input type="file" id="produtoImagem" accept="image/*"><small>Escolha uma imagem do seu dispositivo.</small></div><div class="form-row"><div class="form-group"><label for="produtoPreco">Valor (R$)</label><input type="number" id="produtoPreco" min="0" step="0.01" placeholder="Ex.: 59,90" required></div><div class="form-group"><label for="produtoEstoque">Quantidade disponível</label><input type="number" id="produtoEstoque" min="1" step="1" value="1" required></div></div><div class="form-row"><div class="form-group"><label for="produtoIdioma">Idioma</label><input type="text" id="produtoIdioma" placeholder="Ex.: Português"></div><div class="form-group"><label for="produtoConservacao">Conservação</label><select id="produtoConservacao"><option value="">Selecione</option><option>Novo</option><option>Seminovo</option><option>Usado — ótimo estado</option><option>Usado — bom estado</option></select></div></div><div class="form-row"><div class="form-group"><label for="produtoVolume">Volume / edição</label><input type="text" id="produtoVolume" placeholder="Ex.: Volume único"></div><div class="form-group"><label for="produtoBrindes">Brindes inclusos</label><input type="text" id="produtoBrindes" placeholder="Ex.: Marcador"></div></div><div class="form-group"><label for="produtoObservacoes">Observações adicionais</label><textarea id="produtoObservacoes" rows="3" placeholder="Algo importante sobre este exemplar"></textarea></div><div class="form-actions"><button type="submit" class="btn btn-primary">Salvar na loja</button><button type="button" class="btn btn-secondary" onclick="fecharProdutoModal()">Cancelar</button></div></form></div></section>
+    <footer class="footer"><p>© 2026 Livraria Jashin / 邪神書店. Todos os direitos reservados.</p></footer>
     <script src="app.js"></script>
 </body>
-
 </html>
