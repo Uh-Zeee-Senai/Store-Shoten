@@ -1,0 +1,51 @@
+{
+    "nextId": 4,
+    "users": [
+        {
+            "id": 1,
+            "name": "Administrador Jashin",
+            "email": "admin@jashin.local",
+            "password": "$2y$10$WQd5TB4gZeHFdGnKTt462.eTH2YadUt9\/UzpptDqucVkzlBJluJ.a",
+            "role": "admin",
+            "createdAt": "2026-08-14T14:47:05+00:00"
+        },
+        {
+            "id": 2,
+            "name": "Cliente Demonstração",
+            "email": "cliente@jashin.local",
+            "password": "$2y$10$2grCaCOEqu3b.BBr3blMcereQ1nXpRKiii2Hqrn3QomYnmX\/kWUzu",
+            "role": "client",
+            "createdAt": "2026-08-14T14:47:05+00:00"
+        }
+    ],
+    "books": [
+        {
+            "id": 1,
+            "title": "O Hobbit",
+            "author": "J. R. R. Tolkien",
+            "publisher": "HarperCollins",
+            "edition": "Capa dura",
+            "barcode": "9788595084742",
+            "price": 59.9,
+            "stock": 8,
+            "description": "Uma aventura clássica pela Terra-média.",
+            "image": "",
+            "active": true
+        },
+        {
+            "id": 2,
+            "title": "O Senhor dos Anéis: A Sociedade do Anel",
+            "author": "J. R. R. Tolkien",
+            "publisher": "HarperCollins",
+            "edition": "Edição especial",
+            "barcode": "9788595086357",
+            "price": 79.9,
+            "stock": 5,
+            "description": "O primeiro volume da jornada do Anel.",
+            "image": "",
+            "active": true
+        }
+    ],
+    "requests": [],
+    "orders": []
+}

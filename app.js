@@ -1,240 +1,28 @@
-// Registro do Service Worker
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
-}
-
-const STORAGE_KEY = 'encomenda';
-const CART_KEY = 'carrinho-jashin';
-let encomendas = [];
-let carrinho = [];
-let deferredPrompt = null;
-
-window.addEventListener('beforeinstallprompt', (event) => {
-    event.preventDefault();
-    deferredPrompt = event;
-    document.getElementById('installBtn').hidden = false;
-});
-
-document.addEventListener('DOMContentLoaded', () => {
-    carregarEncomendas();
-    carregarCarrinho();
-    renderizarEncomendas();
-    renderizarCatalogo();
-    atualizarCarrinho();
-    document.getElementById('encomendaForm').addEventListener('submit', adicionarEncomenda);
-    document.getElementById('produtoForm').addEventListener('submit', salvarProduto);
-    document.getElementById('installBtn').addEventListener('click', instalarPwa);
-});
-
-function carregarEncomendas() {
-    const dados = localStorage.getItem(STORAGE_KEY);
-    encomendas = dados ? JSON.parse(dados) : [];
-}
-
-function carregarCarrinho() {
-    const dados = localStorage.getItem(CART_KEY);
-    carrinho = dados ? JSON.parse(dados) : [];
-}
-
-function salvarEncomendas() { localStorage.setItem(STORAGE_KEY, JSON.stringify(encomendas)); }
-function salvarCarrinho() { localStorage.setItem(CART_KEY, JSON.stringify(carrinho)); }
-
-function abrirAba(aba) {
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    document.querySelectorAll('.tab').forEach(el => el.classList.toggle('active', el.dataset.tab === aba));
-    document.getElementById(`${aba}Tab`).classList.add('active');
-    if (aba === 'comprar') renderizarCatalogo();
-}
-
-function renderizarEncomendas() {
-    const lista = document.getElementById('encomendaList');
-    if (!encomendas.length) {
-        lista.innerHTML = '<p class="empty-message">Nenhuma encomenda registrada.</p>';
-        return;
-    }
-    lista.innerHTML = encomendas.map(livro => `
-        <div class="encomenda-item">
-            <strong>${escapeHtml(livro.numero)}</strong>
-            <p>${escapeHtml(livro.autor || 'Autor não informado')} · ${escapeHtml(livro.versao || 'Versão não informada')}</p>
-            <p class="encomenda-meta">${escapeHtml(livro.editora || 'Editora não informada')} — ${escapeHtml(livro.descricao)}</p>
-            <div class="encomenda-actions">
-                <button class="btn btn-check ${livro.comprado ? 'checked' : ''}" onclick="abrirProdutoModal(${livro.id})">${livro.comprado ? 'Editar na loja' : 'Marcar como comprado'}</button>
-                <button class="btn btn-delete" onclick="deletarEncomenda(${livro.id})">Remover</button>
-            </div>
-        </div>`).join('');
-}
-
-function renderizarCatalogo() {
-    const lista = document.getElementById('catalogoList');
-    const produtos = encomendas.filter(livro => livro.comprado && Number(livro.estoque) > 0 && livro.preco !== undefined);
-    if (!produtos.length) {
-        lista.innerHTML = '<p class="empty-shop">O acervo ainda está sendo preparado. Marque uma encomenda como comprada para adicioná-la à loja.</p>';
-        return;
-    }
-    lista.innerHTML = produtos.map(livro => `
-        <article class="book-card">
-            ${livro.imagem ? `<img class="book-cover" src="${livro.imagem}" alt="Capa de ${escapeHtml(livro.numero)}">` : '<div class="book-cover-placeholder" aria-hidden="true">✦</div>'}
-            <div class="book-info">
-                <h3>${escapeHtml(livro.numero)}</h3>
-                <p>${escapeHtml(livro.autor || '')}</p>
-                <p>${escapeHtml(livro.editora || '')} · ${escapeHtml(livro.versao || '')}</p>
-                ${renderizarDetalhesLoja(livro)}
-                <span class="book-price">${formatarPreco(livro.preco)}</span>
-                <button class="btn btn-primary" onclick="adicionarAoCarrinho(${livro.id})">Adicionar à sacola</button>
-            </div>
-        </article>`).join('');
-}
-
-function toggleFormSection() {
-    const formSection = document.getElementById('formSection');
-    formSection.classList.toggle('visible');
-    if (formSection.classList.contains('visible')) document.getElementById('numeroEncomenda').focus();
-}
-
-function adicionarEncomenda(evento) {
-    evento.preventDefault();
-    const nome = document.getElementById('numeroEncomenda').value.trim();
-    if (encomendas.some(livro => livro.numero.toLocaleLowerCase() === nome.toLocaleLowerCase())) {
-        alert('Já existe uma encomenda para este livro.');
-        return;
-    }
-    encomendas.push({
-        id: Date.now(), numero: nome, autor: document.getElementById('autor').value.trim(),
-        editora: document.getElementById('editora').value.trim(), versao: document.getElementById('versao').value,
-        descricao: document.getElementById('descricao').value.trim(), comprado: false,
-        dataCriacao: new Date().toLocaleString('pt-BR')
-    });
-    salvarEncomendas();
-    evento.target.reset();
-    toggleFormSection();
-    renderizarEncomendas();
-    mostrarNotificacao('Encomenda adicionada!');
-}
-
-function abrirProdutoModal(id) {
-    const livro = encomendas.find(item => item.id === id);
-    if (!livro) return;
-    document.getElementById('produtoId').value = livro.id;
-    document.getElementById('produtoLivroNome').textContent = livro.numero;
-    document.getElementById('produtoPreco').value = livro.preco ?? '';
-    document.getElementById('produtoEstoque').value = livro.estoque ?? 1;
-    document.getElementById('produtoIdioma').value = livro.informacoesLoja?.idioma ?? '';
-    document.getElementById('produtoConservacao').value = livro.informacoesLoja?.conservacao ?? '';
-    document.getElementById('produtoVolume').value = livro.informacoesLoja?.volume ?? '';
-    document.getElementById('produtoBrindes').value = livro.informacoesLoja?.brindes ?? '';
-    document.getElementById('produtoObservacoes').value = livro.informacoesLoja?.observacoes ?? livro.detalhesLoja ?? '';
-    document.getElementById('produtoImagem').value = '';
-    document.getElementById('produtoModal').hidden = false;
-    document.getElementById('produtoModal').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function fecharProdutoModal() { document.getElementById('produtoModal').hidden = true; }
-
-function salvarProduto(evento) {
-    evento.preventDefault();
-    const livro = encomendas.find(item => item.id === Number(document.getElementById('produtoId').value));
-    if (!livro) return;
-    const aplicarDados = (imagem = livro.imagem || '') => {
-        livro.comprado = true;
-        livro.preco = Number(document.getElementById('produtoPreco').value);
-        livro.estoque = Number(document.getElementById('produtoEstoque').value);
-        livro.informacoesLoja = {
-            idioma: document.getElementById('produtoIdioma').value.trim(),
-            conservacao: document.getElementById('produtoConservacao').value,
-            volume: document.getElementById('produtoVolume').value.trim(),
-            brindes: document.getElementById('produtoBrindes').value.trim(),
-            observacoes: document.getElementById('produtoObservacoes').value.trim()
-        };
-        livro.imagem = imagem;
-        livro.dataConferencia = new Date().toLocaleString('pt-BR');
-        salvarEncomendas();
-        fecharProdutoModal();
-        renderizarEncomendas();
-        renderizarCatalogo();
-        mostrarNotificacao('Livro adicionado à loja!');
-    };
-    const arquivo = document.getElementById('produtoImagem').files[0];
-    if (!arquivo) return aplicarDados();
-    const leitor = new FileReader();
-    leitor.onload = () => aplicarDados(leitor.result);
-    leitor.readAsDataURL(arquivo);
-}
-
-function adicionarAoCarrinho(id) {
-    const livro = encomendas.find(item => item.id === id);
-    if (!livro) return;
-    const item = carrinho.find(produto => produto.id === id);
-    const quantidadeNoCarrinho = item ? item.quantidade : 0;
-    if (quantidadeNoCarrinho >= livro.estoque) {
-        mostrarNotificacao('Não há mais unidades disponíveis.');
-        return;
-    }
-    if (item) item.quantidade += 1;
-    else carrinho.push({ id: livro.id, quantidade: 1 });
-    salvarCarrinho();
-    atualizarCarrinho();
-    mostrarNotificacao('Livro adicionado à sacola!');
-}
-
-function toggleCarrinho() {
-    const painel = document.getElementById('carrinho');
-    painel.hidden = !painel.hidden;
-    if (!painel.hidden) atualizarCarrinho();
-}
-
-function atualizarCarrinho() {
-    const itens = carrinho.map(item => ({ ...item, livro: encomendas.find(livro => livro.id === item.id) })).filter(item => item.livro);
-    const quantidade = itens.reduce((total, item) => total + item.quantidade, 0);
-    const total = itens.reduce((soma, item) => soma + item.livro.preco * item.quantidade, 0);
-    document.getElementById('cartCount').textContent = quantidade;
-    document.getElementById('cartCount').hidden = quantidade === 0;
-    document.getElementById('cartCountButton').textContent = quantidade;
-    document.getElementById('cartTotal').textContent = formatarPreco(total);
-    document.getElementById('carrinhoItens').innerHTML = itens.length ? itens.map(item => `<div class="cart-item"><div><strong>${escapeHtml(item.livro.numero)}</strong><span>${item.quantidade} × ${formatarPreco(item.livro.preco)}</span></div><button class="remove-cart" onclick="removerDoCarrinho(${item.id})">Remover</button></div>`).join('') : '<p class="empty-message">Sua sacola está vazia.</p>';
-}
-
-function removerDoCarrinho(id) {
-    carrinho = carrinho.filter(item => item.id !== id);
-    salvarCarrinho();
-    atualizarCarrinho();
-}
-
-function finalizarCompra() {
-    if (!carrinho.length) return mostrarNotificacao('Adicione um livro à sacola primeiro.');
-    carrinho.forEach(item => {
-        const livro = encomendas.find(produto => produto.id === item.id);
-        if (livro) livro.estoque = Math.max(0, livro.estoque - item.quantidade);
-    });
-    carrinho = [];
-    salvarCarrinho(); salvarEncomendas();
-    atualizarCarrinho(); renderizarCatalogo();
-    document.getElementById('carrinho').hidden = true;
-    mostrarNotificacao('Pedido finalizado com sucesso!');
-}
-
-function deletarEncomenda(id) {
-    if (!confirm('Tem certeza que deseja remover esta encomenda?')) return;
-    encomendas = encomendas.filter(item => item.id !== id);
-    carrinho = carrinho.filter(item => item.id !== id);
-    salvarEncomendas(); salvarCarrinho();
-    renderizarEncomendas(); renderizarCatalogo(); atualizarCarrinho();
-    mostrarNotificacao('Encomenda removida com sucesso!');
-}
-
-async function instalarPwa() {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-    deferredPrompt = null;
-    document.getElementById('installBtn').hidden = true;
-}
-
-function formatarPreco(valor) { return Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
-function renderizarDetalhesLoja(livro) {
-    const informacoes = livro.informacoesLoja || {};
-    const detalhesAntigos = livro.detalhesLoja ? [livro.detalhesLoja] : [];
-    const itens = [informacoes.idioma, informacoes.conservacao, informacoes.volume, informacoes.brindes, informacoes.observacoes, ...detalhesAntigos].filter(Boolean);
-    return itens.length ? `<p class="book-details">${itens.map(escapeHtml).join(' · ')}</p>` : '';
-}
-function mostrarNotificacao(mensagem) { const el = document.createElement('div'); el.textContent = mensagem; el.className = 'toast'; document.body.appendChild(el); setTimeout(() => el.remove(), 2500); }
-function escapeHtml(texto) { const div = document.createElement('div'); div.textContent = texto ?? ''; return div.innerHTML; }
+const api=async(action,data)=>{try{const r=await fetch(`api.php?action=${action}`,{method:data?'POST':'GET',headers:data?{'Content-Type':'application/json'}:{},body:data?JSON.stringify(data):undefined});const json=await r.json();return json}catch(error){return {error:'Não foi possível conectar ao sistema. Abra a livraria pelo Laragon (http://localhost/...) e confira se o Apache está ativo.'};}};
+let user=null, books=[], cart=[], adminData=null, installPrompt=null;
+const $=s=>document.querySelector(s), money=v=>Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+document.addEventListener('DOMContentLoaded',async()=>{ bind(); registerPwa(); const r=await api('bootstrap'); if(r.error)toast(r.error); user=r.user||null; render(); });
+function bind(){ $('#loginForm').onsubmit=e=>auth(e,'login',{email:$('#loginEmail').value,password:$('#loginPassword').value}); $('#registerForm').onsubmit=e=>auth(e,'register',{name:$('#registerName').value,email:$('#registerEmail').value,password:$('#registerPassword').value}); $('#logoutBtn').onclick=async()=>{await api('logout',{});user=null;cart=[];render()}; $('#installBtn').onclick=installApp; }
+function registerPwa(){if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js');window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e;$('#installBtn').hidden=false;});}
+async function installApp(){if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$('#installBtn').hidden=true;}
+async function auth(e,action,data){e.preventDefault();const r=await api(action,data);if(r.error)return toast(r.error);user=r.user;render();}
+function render(){ $('#authView').hidden=!!user; $('#appView').hidden=!user; $('#logoutBtn').hidden=!user;if(!user)return; const admin=user.role==='admin'; $('#nav').innerHTML=(admin?['Painel','Catálogo','Encomendas','Vendas','Clientes','Perfil']:['Loja','Encomendar','Minhas compras','Perfil']).map((x,i)=>`<button class="tab ${i?'':'active'}" onclick="page('${x}',this)">${x}${x==='Loja'?` <b>${cart.length}</b>`:''}</button>`).join(''); page(admin?'Painel':'Loja',$('.tab'));}
+async function page(name,button){document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));button?.classList.add('active'); if(user.role==='admin') return adminPage(name); if(name==='Loja')return shop(); if(name==='Encomendar')return requestForm(); if(name==='Minhas compras')return myPurchases(); profile();}
+async function shop(){const r=await api('books');books=r.books;$('#page').innerHTML=`<section class="hero"><p class="eyebrow">ACERVO DA JASHIN</p><h2>Livros para jornadas épicas.</h2><p>Fantasia, aventura e histórias para guardar.</p></section><section class="panel"><div class="row"><h2>Loja</h2><button class="btn small" onclick="showCart()">Sacola (${cart.length})</button></div><div class="grid">${books.map(b=>`<article class="book"><div class="cover">${b.image?`<img src="${esc(b.image)}">`:'✦'}</div><h3>${esc(b.title)}</h3><p>${esc(b.author)} · ${esc(b.edition)}</p><b>${money(b.price)}</b><button class="btn btn-primary" onclick="addCart(${b.id})">Adicionar</button></article>`).join('')||'<p>Nenhum livro disponível.</p>'}</div></section>`;}
+function addCart(id){const item=cart.find(x=>x.id===id);item?item.quantity++:cart.push({id,quantity:1});toast('Livro adicionado à sacola.');shop();}
+function showCart(){const items=cart.map(i=>({...i,b:books.find(b=>b.id===i.id)})).filter(i=>i.b);$('#page').innerHTML=`<section class="panel"><div class="row"><h2>Sua sacola</h2><button class="text-btn" onclick="shop()">Voltar</button></div>${items.map(i=>`<div class="line"><span>${esc(i.b.title)} × ${i.quantity}</span><b>${money(i.b.price*i.quantity)}</b></div>`).join('')||'<p>Sua sacola está vazia.</p>'}<div class="total">Total <b>${money(items.reduce((s,i)=>s+i.b.price*i.quantity,0))}</b></div><form id="checkoutForm"><label>Como deseja receber?</label><select name="deliveryMethod"><option>Retirada na loja</option><option>Entrega local</option></select><textarea name="address" placeholder="Endereço ou observação para entrega (opcional)"></textarea><button class="btn btn-primary">Confirmar pedido</button></form><p class="muted">Pagamento é simulado nesta versão.</p></section>`;$('#checkoutForm').onsubmit=e=>{e.preventDefault();checkout(Object.fromEntries(new FormData(e.target)));};}
+async function checkout(info){const r=await api('checkout',{items:cart,...info});if(r.error)return toast(r.error);cart=[];toast('Pedido registrado!');page('Minhas compras',null);}
+function requestForm(){$('#page').innerHTML=`<section class="panel"><h2>Encomendar livro</h2><form id="req"><input name="title" placeholder="Título" required><input name="author" placeholder="Autor" required><input name="publisher" placeholder="Editora"><input name="edition" placeholder="Versão / edição" required><textarea name="notes" placeholder="Observações"></textarea><button class="btn btn-primary">Enviar encomenda</button></form></section>`;$('#req').onsubmit=async e=>{e.preventDefault();const r=await api('request-create',Object.fromEntries(new FormData(e.target)));if(r.error)return toast(r.error);toast('Encomenda enviada!');e.target.reset();};}
+async function myPurchases(){const r=await api('my-data');$('#page').innerHTML=`<section class="panel"><h2>Minhas encomendas</h2>${r.requests.map(x=>`<div class="line"><span>${esc(x.title)}<small>${esc(x.author)}</small></span><b>${x.status}</b></div>`).join('')||'<p>Nenhuma encomenda ainda.</p>'}</section><section class="panel"><h2>Minhas compras</h2>${r.orders.map(o=>`<div class="line"><span>#${o.id} · ${o.items.map(i=>esc(i.title)).join(', ')}<small>${o.status} · ${o.paymentStatus}</small></span><b>${money(o.total)}</b></div>`).join('')||'<p>Nenhuma compra ainda.</p>'}</section>`;}
+async function adminPage(name){const r=await api('admin-data');if(r.error)return toast(r.error);adminData=r;if(name==='Painel')return dashboard();if(name==='Catálogo')return catalog();if(name==='Encomendas')return requests();if(name==='Vendas')return sales();if(name==='Clientes')return clients();$('#page').innerHTML=`<section class="panel"><h2>Perfil do administrador</h2><p>${esc(user.name)}<br>${esc(user.email)}</p></section>`;}
+function dashboard(){const s=adminData.stats;$('#page').innerHTML=`<section class="hero"><p class="eyebrow">PAINEL DA LIVRARIA</p><h2>O seu acervo está florescendo.</h2></section><div class="stats"><div><small>Vendas</small><b>${money(s.sales)}</b></div><div><small>Pedidos</small><b>${s.orders}</b></div><div><small>Encomendas</small><b>${s.requests}</b></div><div><small>Em estoque</small><b>${s.stock}</b></div></div><section class="panel"><h2>Atenção ao estoque</h2>${adminData.lowStock.map(b=>`<div class="line"><span>${esc(b.title)}<small>${esc(b.author)}</small></span><b>${b.stock} un.</b></div>`).join('')||'<p class="muted">Tudo certo: não há livros com estoque baixo.</p>'}</section>`;}
+function catalog(){const b=adminData.books;$('#page').innerHTML=`<section class="panel"><div class="row"><h2>Catálogo e estoque</h2><button class="btn small" onclick="bookForm()">Novo livro</button></div>${b.map(x=>`<div class="line"><span>${esc(x.title)}<small>${esc(x.author)} · código: ${esc(x.barcode||'—')}</small></span><b>${x.stock} un. · ${money(x.price)}</b></div>`).join('')}</section>`;}
+function bookForm(){$('#page').innerHTML=`<section class="panel"><h2>Novo livro</h2><form id="book"><div class="row"><input name="barcode" placeholder="Código de barras"><button type="button" class="btn small" onclick="scanBarcode()">Ler câmera</button></div><input name="title" placeholder="Título" required><input name="author" placeholder="Autor" required><input name="publisher" placeholder="Editora"><input name="edition" placeholder="Edição"><div class="two"><input name="price" type="number" step=".01" placeholder="Preço" required><input name="stock" type="number" placeholder="Estoque" required></div><textarea name="description" placeholder="Descrição"></textarea><input name="image" placeholder="URL da imagem da capa (opcional)"><button class="btn btn-primary">Salvar livro</button></form></section>`;$('#book').onsubmit=async e=>{e.preventDefault();const r=await api('book-save',Object.fromEntries(new FormData(e.target)));if(r.error)return toast(r.error);toast('Livro salvo!');adminPage('Catálogo');};}
+async function scanBarcode(){if(!('BarcodeDetector'in window))return toast('Leitura por câmera não é suportada neste navegador. Digite o código manualmente.');try{const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});const video=document.createElement('video');video.srcObject=stream;await video.play();const detector=new BarcodeDetector({formats:['ean_13','ean_8','isbn_13']});setTimeout(async()=>{const found=await detector.detect(video);stream.getTracks().forEach(t=>t.stop());if(found[0])document.querySelector('[name=barcode]').value=found[0].rawValue;else toast('Código não encontrado. Tente novamente.');},1500);}catch{toast('Não foi possível acessar a câmera.');}}
+function requests(){$('#page').innerHTML=`<section class="panel"><h2>Encomendas de clientes</h2>${adminData.requests.map(x=>`<div class="line"><span>${esc(x.title)}<small>${esc(x.userName)} · ${esc(x.author)}</small></span><select onchange="status(${x.id},this.value)">${['Recebida','Em busca','Disponível','Concluída'].map(s=>`<option ${s===x.status?'selected':''}>${s}</option>`).join('')}</select></div>`).join('')||'<p>Nenhuma encomenda.</p>'}</section>`;}
+async function status(id,value){await api('request-status',{id,status:value});toast('Status atualizado.');}
+function sales(){$('#page').innerHTML=`<section class="panel"><h2>Vendas e pedidos</h2>${adminData.orders.map(o=>`<div class="line"><span>#${o.id} · ${esc(o.userName)}<small>${o.items.map(i=>esc(i.title)).join(', ')} · ${esc(o.deliveryMethod||'Retirada na loja')} ${o.address?`· ${esc(o.address)}`:''}</small></span><div><b>${money(o.total)}</b><select onchange="orderStatus(${o.id},this.value)">${['Pedido recebido','Em separação','Pronto para retirada','Em entrega','Concluído','Cancelado'].map(s=>`<option ${s===o.status?'selected':''}>${s}</option>`).join('')}</select></div></div>`).join('')||'<p>Nenhuma venda registrada.</p>'}</section>`;}
+function clients(){$('#page').innerHTML=`<section class="panel"><h2>Clientes cadastrados</h2>${adminData.clients.map(c=>`<div class="line"><span>${esc(c.name)}<small>${esc(c.email)}</small></span><b>Cliente</b></div>`).join('')||'<p>Nenhum cliente cadastrado.</p>'}</section>`;}
+async function orderStatus(id,status){const r=await api('order-status',{id,status});if(r.error)return toast(r.error);toast('Pedido atualizado.');}
+function profile(){$('#page').innerHTML=`<section class="panel"><h2>Meu perfil</h2><p class="muted">Mantenha seus dados atualizados. Você pode deixar a senha vazia para não alterá-la.</p><form id="profileForm"><input name="name" value="${esc(user.name)}" required><input value="${esc(user.email)}" disabled><input name="password" type="password" minlength="6" placeholder="Nova senha (opcional)"><button class="btn btn-primary">Salvar alterações</button></form></section>`;$('#profileForm').onsubmit=async e=>{e.preventDefault();const r=await api('account-update',Object.fromEntries(new FormData(e.target)));if(r.error)return toast(r.error);user=r.user;toast('Perfil atualizado.');};}
+function toast(t){const e=$('#toast');e.textContent=t;e.hidden=false;setTimeout(()=>e.hidden=true,3000)}function esc(s){const d=document.createElement('div');d.textContent=s??'';return d.innerHTML;}

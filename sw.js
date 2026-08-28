@@ -1,4 +1,4 @@
-const CACHE = 'encomenda-v6';
+const CACHE = 'encomenda-v8';
 const FILES = ['./', './index.html', './styles.css', './app.js', './manifest.json', './icon.png'];
 
 self.addEventListener('install', e => {
